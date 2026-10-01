@@ -1,0 +1,1541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>PYREKEEPER — The Last Flame</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden; background: #02030a;
+    font-family: Georgia, 'Times New Roman', serif;
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+  }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+
+  /* ---------- UI overlay ---------- */
+  #ui { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+  .hidden { display: none !important; }
+
+  /* HUD */
+  #hud { position: absolute; inset: 0; }
+  #topbar {
+    position: absolute; top: 0; left: 0; right: 0;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding: 12px 14px;
+  }
+  #flamewrap { width: min(320px, 40vw); }
+  #flamelabel {
+    color: #ffb066; font-size: 12px; letter-spacing: 3px; margin-bottom: 5px;
+    text-shadow: 0 0 8px rgba(255,120,20,.8);
+  }
+  #flamebar {
+    height: 14px; border: 1px solid #7a2c0e; border-radius: 8px;
+    background: rgba(10,4,2,.72); overflow: hidden;
+    box-shadow: 0 0 12px rgba(255,90,10,.25), inset 0 0 8px #000;
+  }
+  #flamefill {
+    height: 100%; width: 100%;
+    background: linear-gradient(90deg, #5e0f00, #c22e12 35%, #ff7a1a 65%, #ffd23f);
+    box-shadow: 0 0 14px rgba(255,150,30,.9);
+    transition: width .18s ease-out;
+  }
+  #hearts { color: #ff5a4a; font-size: 20px; letter-spacing: 4px; margin-top: 6px;
+    text-shadow: 0 0 10px rgba(255,60,40,.9); }
+  #embercount { color: #ffd23f; font-size: 13px; letter-spacing: 2px; margin-top: 4px;
+    text-shadow: 0 0 8px rgba(255,180,40,.8); }
+
+  #wavebox { text-align: center; color: #cfe3ff; }
+  #wavenum { font-size: 15px; letter-spacing: 5px; color: #9fc0ff;
+    text-shadow: 0 0 10px rgba(120,170,255,.6); }
+  #score { font-size: 22px; letter-spacing: 3px; color: #fff; margin-top: 2px;
+    text-shadow: 0 0 12px rgba(255,200,120,.7); }
+  #hiscore { font-size: 11px; letter-spacing: 2px; color: #7a86a8; margin-top: 2px; }
+
+  #topbtns { display: flex; gap: 8px; pointer-events: auto; }
+  .iconbtn {
+    width: 40px; height: 40px; border-radius: 50%;
+    border: 1px solid #5a3a20; background: rgba(12,8,4,.7); color: #ffb066;
+    font-size: 18px; cursor: pointer; font-family: inherit;
+  }
+  .iconbtn:active { transform: scale(.92); }
+
+  #wavebanner {
+    position: absolute; top: 22%; left: 0; right: 0; text-align: center;
+    color: #ffd9a0; font-size: clamp(26px, 6vw, 54px); letter-spacing: 10px;
+    text-shadow: 0 0 24px rgba(255,120,20,.9), 0 2px 0 #401404;
+    opacity: 0; transition: opacity .5s;
+  }
+  #wavesub {
+    display:block; font-size: clamp(12px, 2.4vw, 18px); letter-spacing: 6px;
+    color: #ff9a4a; margin-top: 8px;
+  }
+
+  /* Touch controls */
+  #joybase {
+    position: absolute; width: 120px; height: 120px; border-radius: 50%;
+    border: 2px solid rgba(255,150,60,.4); background: rgba(20,10,5,.3);
+    display: none;
+  }
+  #joyknob {
+    position: absolute; left: 50%; top: 50%; width: 52px; height: 52px;
+    border-radius: 50%; transform: translate(-50%,-50%);
+    background: radial-gradient(circle at 35% 35%, #ffcf7a, #c2571a 70%);
+    box-shadow: 0 0 16px rgba(255,130,30,.8);
+  }
+  #firebtn {
+    position: absolute; right: 26px; bottom: 90px; width: 92px; height: 92px;
+    border-radius: 50%; display: none; pointer-events: auto;
+    border: 2px solid #ff9a3a; color: #fff8ee; font-size: 15px; letter-spacing: 2px;
+    font-family: inherit; cursor: pointer;
+    background: radial-gradient(circle at 35% 30%, #ffb35a, #b6320c 75%);
+    box-shadow: 0 0 26px rgba(255,110,20,.85);
+  }
+  #firebtn:active { transform: scale(.9); }
+  body.touch #firebtn { display: block; }
+
+  /* Screens */
+  .screen {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    pointer-events: auto; padding: 24px;
+    background: radial-gradient(ellipse at center, rgba(2,2,8,.25) 0%, rgba(2,2,8,.78) 100%);
+  }
+  .gametitle {
+    color: #ffcf7a; font-size: clamp(38px, 9vw, 84px); letter-spacing: 12px;
+    text-shadow: 0 0 30px rgba(255,120,20,.95), 0 0 80px rgba(255,60,10,.6), 0 3px 0 #3d0f02;
+    margin-bottom: 6px;
+  }
+  .gamesub {
+    color: #ff9a4a; font-size: clamp(13px, 2.6vw, 19px); letter-spacing: 6px; margin-bottom: 26px;
+    text-shadow: 0 0 12px rgba(255,120,20,.7);
+  }
+  .story {
+    max-width: 560px; color: #d8c9b8; font-size: clamp(13px, 2.4vw, 16px);
+    line-height: 1.75; margin-bottom: 26px; font-style: italic;
+  }
+  .controls-hint { color: #8fa0c8; font-size: 13px; letter-spacing: 1px; line-height: 2; margin-bottom: 30px; }
+  .controls-hint b { color: #ffd9a0; }
+  .bigbtn {
+    font-family: inherit; font-size: 20px; letter-spacing: 6px; cursor: pointer;
+    color: #fff3e2; padding: 16px 46px; border-radius: 8px;
+    border: 2px solid #ff9a3a;
+    background: linear-gradient(180deg, #e04e12, #8a1e04);
+    box-shadow: 0 0 30px rgba(255,110,20,.7), inset 0 1px 0 rgba(255,255,255,.25);
+    text-shadow: 0 2px 0 #401404;
+  }
+  .bigbtn:hover { filter: brightness(1.15); }
+  .bigbtn:active { transform: scale(.96); }
+  #finalscore { color: #ffd9a0; font-size: 20px; letter-spacing: 3px; margin: 10px 0 26px; }
+  #newbest { color: #ffe95e; font-size: 15px; letter-spacing: 4px; margin-bottom: 18px;
+    text-shadow: 0 0 14px rgba(255,220,80,.9); }
+  #pausetitle { color: #cfe3ff; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="ui">
+  <div id="hud" class="hidden">
+    <div id="topbar">
+      <div id="flamewrap">
+        <div id="flamelabel">THE LAST FLAME</div>
+        <div id="flamebar"><div id="flamefill"></div></div>
+        <div id="hearts">♥♥♥</div>
+        <div id="embercount">◆ EMBERS: 0</div>
+      </div>
+      <div id="wavebox">
+        <div id="wavenum">WAVE 1</div>
+        <div id="score">0</div>
+        <div id="hiscore">BEST 0</div>
+      </div>
+      <div id="topbtns">
+        <button class="iconbtn" id="mutebtn" title="mute">♪</button>
+        <button class="iconbtn" id="pausebtn" title="pause">II</button>
+      </div>
+    </div>
+    <div id="wavebanner"></div>
+    <div id="joybase"><div id="joyknob"></div></div>
+    <button id="firebtn">FIRE</button>
+  </div>
+
+  <div id="title" class="screen">
+    <div class="gametitle">PYREKEEPER</div>
+    <div class="gamesub">THE LAST FLAME</div>
+    <div class="story">
+      The world froze. The gods went silent. One ember remains, cupped in stone
+      at the heart of the dark &mdash; and the frost shades are coming to snuff it out.<br><br>
+      You are the Pyrekeeper. Burn them back. Feed the flame. If you fall, the flame dies with you.
+    </div>
+    <div class="controls-hint" id="controlshint">
+      <b>WASD / Arrows</b> move &nbsp;&middot;&nbsp; <b>Space</b> hurl flame &nbsp;&middot;&nbsp; <b>P</b> pause &nbsp;&middot;&nbsp; <b>M</b> mute<br>
+      Gather embers from fallen shades &mdash; carry them to the hearth to stoke the flame.<br>
+      Overstoke a roaring flame to unleash an INFERNO.
+    </div>
+    <button class="bigbtn" id="startbtn">KINDLE THE FLAME</button>
+  </div>
+
+  <div id="gameover" class="screen hidden">
+    <div class="gametitle" id="overtitle" style="color:#7fa8ff; text-shadow:0 0 30px rgba(120,170,255,.8), 0 3px 0 #0a1230;">THE DARK PREVAILS</div>
+    <div class="gamesub" id="oversub" style="color:#7fa8ff;">THE FLAME HAS DIED</div>
+    <div id="newbest" class="hidden">★ NEW BEST ★</div>
+    <div id="finalscore">SCORE 0</div>
+    <button class="bigbtn" id="retrybtn">REKINDLE</button>
+  </div>
+
+  <div id="pausescreen" class="screen hidden">
+    <div class="gametitle" id="pausetitle" style="font-size: clamp(28px,6vw,54px);">PAUSED</div>
+    <button class="bigbtn" id="resumebtn" style="margin-top:24px;">RESUME</button>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* ============================================================
+   PYREKEEPER — The Last Flame
+   A fire-worship action-survival game. Canvas 2D, procedural
+   particle fire, dynamic fire lighting, screen-edge inferno
+   overlays. No assets — everything is generated.
+   ============================================================ */
+
+// ---------- tiny utils ----------
+const TAU = Math.PI * 2;
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+const rand = (a, b) => a + Math.random() * (b - a);
+const randi = (a, b) => Math.floor(rand(a, b + 1));
+const dist2 = (ax, ay, bx, by) => { const dx = ax - bx, dy = ay - by; return dx * dx + dy * dy; };
+
+// ---------- canvas ----------
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+
+const lightCanvas = document.createElement('canvas');
+const lctx = lightCanvas.getContext('2d');
+const groundCanvas = document.createElement('canvas');
+const gctx = groundCanvas.getContext('2d');
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = Math.floor(W * DPR); canvas.height = Math.floor(H * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  lightCanvas.width = Math.floor(W * DPR); lightCanvas.height = Math.floor(H * DPR);
+  lctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  groundCanvas.width = Math.floor(W * DPR); groundCanvas.height = Math.floor(H * DPR);
+  gctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  buildGround();
+  placeHearth();
+}
+window.addEventListener('resize', resize);
+
+// ---------- input ----------
+const keys = {};
+window.addEventListener('keydown', e => {
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
+  keys[e.key.toLowerCase()] = true;
+  if (e.key === ' ' ) tryFire();
+  if (e.key.toLowerCase() === 'p') togglePause();
+  if (e.key.toLowerCase() === 'm') toggleMute();
+});
+window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+// touch: left-half virtual joystick, right FIRE button handled by DOM
+const joy = { active: false, id: -1, ox: 0, oy: 0, dx: 0, dy: 0 };
+const joyBase = document.getElementById('joybase');
+const joyKnob = document.getElementById('joyknob');
+if ('ontouchstart' in window) document.body.classList.add('touch');
+
+canvas.addEventListener('touchstart', e => {
+  for (const t of e.changedTouches) {
+    if (!joy.active && t.clientX < W * 0.55) {
+      joy.active = true; joy.id = t.identifier;
+      joy.ox = t.clientX; joy.oy = t.clientY; joy.dx = 0; joy.dy = 0;
+      joyBase.style.display = 'block';
+      joyBase.style.left = (t.clientX - 60) + 'px';
+      joyBase.style.top = (t.clientY - 60) + 'px';
+    }
+  }
+  e.preventDefault();
+}, { passive: false });
+canvas.addEventListener('touchmove', e => {
+  for (const t of e.changedTouches) {
+    if (joy.active && t.identifier === joy.id) {
+      let dx = t.clientX - joy.ox, dy = t.clientY - joy.oy;
+      const m = Math.hypot(dx, dy), max = 52;
+      if (m > max) { dx = dx / m * max; dy = dy / m * max; }
+      joy.dx = dx / max; joy.dy = dy / max;
+      joyKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+    }
+  }
+  e.preventDefault();
+}, { passive: false });
+const joyEnd = e => {
+  for (const t of e.changedTouches) {
+    if (joy.active && t.identifier === joy.id) {
+      joy.active = false; joy.id = -1; joy.dx = 0; joy.dy = 0;
+      joyBase.style.display = 'none';
+      joyKnob.style.transform = 'translate(-50%,-50%)';
+    }
+  }
+};
+canvas.addEventListener('touchend', joyEnd);
+canvas.addEventListener('touchcancel', joyEnd);
+document.getElementById('firebtn').addEventListener('touchstart', e => { tryFire(); e.preventDefault(); }, { passive: false });
+
+// ============================================================
+//  AUDIO — fully procedural Web Audio. Fire crackle bed,
+//  wind, whooshes, chimes, horns. No audio files.
+// ============================================================
+const Audio2 = {
+  ctx: null, master: null, muted: false,
+  crackleGain: null, windGain: null, noiseBuf: null,
+
+  init() {
+    if (this.ctx) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    this.ctx = new AC();
+    this.master = this.ctx.createGain();
+    this.master.gain.value = 0.9;
+    this.master.connect(this.ctx.destination);
+
+    // 2s looping noise buffer (brown-ish via filtering at play time)
+    const len = this.ctx.sampleRate * 2;
+    this.noiseBuf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+    const d = this.noiseBuf.getChannelData(0);
+    let last = 0;
+    for (let i = 0; i < len; i++) {
+      const w = Math.random() * 2 - 1;
+      last = (last + 0.02 * w) / 1.02;
+      d[i] = last * 3.2;
+    }
+
+    // fire crackle bed: looped noise -> lowpass -> gain (modulated per-frame)
+    const crackle = this.ctx.createBufferSource();
+    crackle.buffer = this.noiseBuf; crackle.loop = true;
+    const lp = this.ctx.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 900; lp.Q.value = 0.4;
+    this.crackleGain = this.ctx.createGain(); this.crackleGain.gain.value = 0.0;
+    crackle.connect(lp); lp.connect(this.crackleGain); this.crackleGain.connect(this.master);
+    crackle.start();
+
+    // wind bed: looped noise -> bandpass (slow LFO on freq)
+    const wind = this.ctx.createBufferSource();
+    wind.buffer = this.noiseBuf; wind.loop = true; wind.playbackRate.value = 0.4;
+    const bp = this.ctx.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = 300; bp.Q.value = 0.6;
+    this.windGain = this.ctx.createGain(); this.windGain.gain.value = 0.035;
+    const lfo = this.ctx.createOscillator(); lfo.frequency.value = 0.07;
+    const lfoG = this.ctx.createGain(); lfoG.gain.value = 140;
+    lfo.connect(lfoG); lfoG.connect(bp.frequency); lfo.start();
+    wind.connect(bp); bp.connect(this.windGain); this.windGain.connect(this.master);
+    wind.start();
+
+    // random crackle pops
+    const pop = () => {
+      if (!this.ctx || this.muted) { setTimeout(pop, rand(60, 400)); return; }
+      if (G.state === 'play' && G.flame > 4) {
+        const t = this.ctx.currentTime;
+        const o = this.ctx.createBufferSource(); o.buffer = this.noiseBuf;
+        o.playbackRate.value = rand(1.5, 3.5);
+        const f = this.ctx.createBiquadFilter();
+        f.type = 'bandpass'; f.frequency.value = rand(1200, 4200); f.Q.value = 2;
+        const g = this.ctx.createGain();
+        const amp = rand(0.02, 0.10) * (0.3 + G.flame / 130);
+        g.gain.setValueAtTime(amp, t);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + rand(0.03, 0.12));
+        o.connect(f); f.connect(g); g.connect(this.master);
+        o.start(t, rand(0, 1.5), 0.15);
+      }
+      setTimeout(pop, rand(50, 380));
+    };
+    setTimeout(pop, 200);
+  },
+
+  resume() { if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); },
+
+  // per-frame: modulate beds with flame level
+  update(dt) {
+    if (!this.ctx || this.muted) return;
+    const target = G.state === 'play' ? 0.05 + (G.flame / 100) * 0.16 : 0.028;
+    const flick = 1 + Math.sin(perfT * 23) * 0.12 + Math.sin(perfT * 57) * 0.07;
+    this.crackleGain.gain.setTargetAtTime(target * flick, this.ctx.currentTime, 0.06);
+    const dark = G.state === 'play' ? (1 - G.flame / 130) : 0.4;
+    this.windGain.gain.setTargetAtTime(0.02 + dark * 0.075, this.ctx.currentTime, 0.4);
+  },
+
+  blip(freq, dur, type, vol, slideTo) {
+    if (!this.ctx || this.muted) return;
+    const t = this.ctx.currentTime;
+    const o = this.ctx.createOscillator(); o.type = type || 'sine';
+    o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(vol || 0.15, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(this.master);
+    o.start(t); o.stop(t + dur + 0.02);
+  },
+
+  noiseBurst(dur, filterType, freq, vol, slideTo) {
+    if (!this.ctx || this.muted) return;
+    const t = this.ctx.currentTime;
+    const o = this.ctx.createBufferSource(); o.buffer = this.noiseBuf;
+    o.playbackRate.value = rand(0.8, 1.4);
+    const f = this.ctx.createBiquadFilter(); f.type = filterType; f.frequency.value = freq;
+    if (slideTo) f.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(f); f.connect(g); g.connect(this.master);
+    o.start(t, rand(0, 1), dur + 0.05);
+  },
+
+  whoosh()  { this.noiseBurst(0.28, 'bandpass', 900, 0.22, 2600); },
+  pickup()  { this.blip(660, 0.12, 'sine', 0.14, 990); setTimeout(() => this.blip(990, 0.14, 'sine', 0.10, 1320), 70); },
+  deposit() { this.blip(330, 0.2, 'triangle', 0.2, 660); this.noiseBurst(0.35, 'lowpass', 1200, 0.12); },
+  shadeDie(){ this.noiseBurst(0.3, 'highpass', 2400, 0.16, 500); },
+  hurt()    { this.blip(180, 0.3, 'sawtooth', 0.2, 70); },
+  horn()    { this.blip(98, 1.1, 'sawtooth', 0.16, 92); this.blip(147, 1.1, 'sawtooth', 0.10, 140); },
+  inferno() { this.noiseBurst(1.6, 'lowpass', 500, 0.4, 180); this.blip(60, 1.6, 'sine', 0.3, 38); },
+  bossDie() { this.noiseBurst(1.0, 'lowpass', 900, 0.3, 120); this.blip(220, 0.8, 'sawtooth', 0.14, 55); },
+};
+
+function toggleMute() {
+  Audio2.init();
+  Audio2.muted = !Audio2.muted;
+  if (Audio2.master) Audio2.master.gain.value = Audio2.muted ? 0 : 0.9;
+  document.getElementById('mutebtn').textContent = Audio2.muted ? '✕' : '♪';
+}
+document.getElementById('mutebtn').addEventListener('click', toggleMute);
+
+// ============================================================
+//  FIRE ENGINE — pooled particles, additive flames, screen
+//  edge inferno overlays, dynamic lighting, ground, weather.
+// ============================================================
+let perfT = 0;
+
+// ---------- pre-rendered glow sprites (fast additive draws) ----------
+function makeGlowSprite(stops) {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  for (const [o, col] of stops) gr.addColorStop(o, col);
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  return c;
+}
+const SPR = {
+  flameHot:  makeGlowSprite([[0,'rgba(255,232,170,1)'],[0.35,'rgba(255,196,110,0.85)'],[1,'rgba(255,150,40,0)']]),
+  flameMid:  makeGlowSprite([[0,'rgba(255,190,90,0.95)'],[0.45,'rgba(255,120,30,0.7)'],[1,'rgba(220,60,10,0)']]),
+  flameLow:  makeGlowSprite([[0,'rgba(255,110,40,0.8)'],[0.5,'rgba(200,50,12,0.5)'],[1,'rgba(120,20,5,0)']]),
+  smoke:     makeGlowSprite([[0,'rgba(90,90,105,0.5)'],[0.6,'rgba(70,70,85,0.28)'],[1,'rgba(50,50,65,0)']]),
+  spark:     makeGlowSprite([[0,'rgba(255,240,200,1)'],[0.4,'rgba(255,200,110,0.8)'],[1,'rgba(255,150,50,0)']]),
+  frost:     makeGlowSprite([[0,'rgba(170,215,255,0.9)'],[0.5,'rgba(120,180,255,0.45)'],[1,'rgba(80,140,255,0)']]),
+  glowWarm:  makeGlowSprite([[0,'rgba(255,190,110,0.9)'],[1,'rgba(255,120,30,0)']]),
+};
+
+// ---------- particle pool ----------
+const PMAX = 2400;
+const parts = [];
+for (let i = 0; i < PMAX; i++) parts.push({ alive: false });
+let pCursor = 0;
+let EMIT_OVERLAY = false; // set while an overlay emitter is spawning
+function nextP() {
+  for (let n = 0; n < PMAX; n++) {
+    pCursor = (pCursor + 1) % PMAX;
+    if (!parts[pCursor].alive) return parts[pCursor];
+  }
+  return null; // pool exhausted — drop oldest silently
+}
+// kind: 0 flame, 1 spark, 2 smoke, 3 snow, 4 frostmote
+function spawnP(kind, x, y, vx, vy, life, size, sizeEnd, extra) {
+  const p = nextP(); if (!p) return;
+  p.alive = true; p.kind = kind;
+  p.overlay = EMIT_OVERLAY;
+  p.x = x; p.y = y; p.vx = vx; p.vy = vy;
+  p.life = life; p.maxLife = life;
+  p.size = size; p.sizeEnd = sizeEnd === undefined ? size * 0.25 : sizeEnd;
+  p.seed = Math.random() * TAU;
+  p.turb = (extra && extra.turb) || 0;
+  p.buoy = (extra && extra.buoy) || 0;
+  p.grav = (extra && extra.grav) || 0;
+  p.drag = (extra && extra.drag) || 0;
+  p.alpha = (extra && extra.alpha) || 1;
+  p.sway = (extra && extra.sway) || 0;
+}
+
+function updateParticles(dt) {
+  for (let i = 0; i < PMAX; i++) {
+    const p = parts[i];
+    if (!p.alive) continue;
+    p.life -= dt;
+    if (p.life <= 0) { p.alive = false; continue; }
+    if (p.turb) p.vx += Math.sin(perfT * 7 + p.seed * 3) * p.turb * dt;
+    if (p.sway) p.x += Math.sin(perfT * 1.6 + p.seed) * p.sway * dt;
+    p.vy -= p.buoy * dt;
+    p.vy += p.grav * dt;
+    if (p.drag) { const d = 1 - p.drag * dt; p.vx *= d; p.vy *= d; }
+    p.x += p.vx * dt; p.y += p.vy * dt;
+  }
+}
+
+function drawFlameSprite(spr, x, y, size, alpha) {
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(spr, x - size / 2, y - size / 2, size, size);
+}
+
+function drawParticles(onlyOverlay) {
+  // additive pass: flames, sparks, warm glows, frost motes
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = 1;
+  for (let i = 0; i < PMAX; i++) {
+    const p = parts[i];
+    if (!p.alive || !!p.overlay !== !!onlyOverlay) continue;
+    if (p.kind === 2 || p.kind === 3) continue;
+    const t = p.life / p.maxLife;
+    const size = lerp(p.sizeEnd, p.size, t);
+    if (p.kind === 0) {
+      const spr = t > 0.62 ? SPR.flameHot : (t > 0.3 ? SPR.flameMid : SPR.flameLow);
+      drawFlameSprite(spr, p.x, p.y, size, t * 0.78 * p.alpha);
+    } else if (p.kind === 1) {
+      drawFlameSprite(SPR.spark, p.x, p.y, size * (0.5 + t), t * p.alpha);
+    } else if (p.kind === 4) {
+      drawFlameSprite(SPR.frost, p.x, p.y, size, t * 0.7 * p.alpha);
+    }
+  }
+  ctx.globalAlpha = 1;
+  // normal pass: smoke + snow
+  ctx.globalCompositeOperation = 'source-over';
+  for (let i = 0; i < PMAX; i++) {
+    const p = parts[i];
+    if (!p.alive || !!p.overlay !== !!onlyOverlay) continue;
+    if (p.kind !== 2 && p.kind !== 3) continue;
+    const t = p.life / p.maxLife;
+    if (p.kind === 2) {
+      const size = lerp(p.size, p.sizeEnd, 1 - t);
+      ctx.globalAlpha = (1 - t) * 0.20 * p.alpha;
+      const s = size;
+      ctx.drawImage(SPR.smoke, p.x - s / 2, p.y - s / 2, s, s);
+    } else {
+      ctx.globalAlpha = 0.75 * p.alpha;
+      ctx.fillStyle = '#dfe9ff';
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size * t + 0.4, 0, TAU); ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+// ---------- emitters ----------
+const emitters = [];
+function addEmitter(o) {
+  const e = Object.assign({ acc: 0, intensity: 1, alive: true }, o);
+  emitters.push(e); return e;
+}
+function updateEmitters(dt) {
+  for (const e of emitters) {
+    if (!e.alive || e.intensity <= 0.01) continue;
+    e.acc += e.rate * e.intensity * dt;
+    EMIT_OVERLAY = !!e.overlay;
+    while (e.acc >= 1) {
+      e.acc -= 1;
+      emitFrom(e);
+    }
+    EMIT_OVERLAY = false;
+  }
+}
+function emitFrom(e) {
+  const x = e.x + rand(-e.w / 2, e.w / 2);
+  const y = e.y + rand(-6, 6);
+  const r = Math.random();
+  if (r < 0.74) {
+    // core flame
+    const s = e.size * rand(0.7, 1.3);
+    spawnP(0, x, y, rand(-16, 16) + (e.spread || 0) * rand(-1, 1),
+      e.dirY * rand(e.speed * 0.7, e.speed * 1.3),
+      rand(0.4, 0.8), s, s * 0.28,
+      { turb: 95, buoy: 30, drag: 1.4 });
+  } else if (r < 0.90) {
+    // spark
+    spawnP(1, x, y, rand(-90, 90), e.dirY * rand(40, 170),
+      rand(0.5, 1.3), rand(3, 7), 1, { grav: 60, drag: 0.6 });
+  } else {
+    // smoke wisp — sparse, spawns above the flame base, drifts clear
+    spawnP(2, x, y + (e.dirY < 0 ? -30 : 30), rand(-16, 16), e.dirY * rand(30, 60),
+      rand(1.4, 2.6), e.size * rand(0.35, 0.55), e.size * 1.6,
+      { turb: 34, buoy: 16, alpha: 0.5 });
+  }
+}
+
+// screen-edge inferno overlays (top + bottom strips framing the playfield)
+const overlayTop = { x: 0, y: -14, w: 0, rate: 260, size: 90, speed: 130, dirY: 1, spread: 30, overlay: true };
+const overlayBot = { x: 0, y: 0, w: 0, rate: 340, size: 120, speed: 190, dirY: -1, spread: 30, overlay: true };
+addEmitter(overlayTop); addEmitter(overlayBot);
+// ambient snowfall, always on
+addEmitter({ x: 0, y: -10, w: 0, rate: 26, size: 2, speed: 0, dirY: 1, spread: 0, snow: true });
+function layoutOverlays() {
+  overlayTop.x = W / 2; overlayTop.w = W; overlayTop.y = -16;
+  overlayBot.x = W / 2; overlayBot.w = W; overlayBot.y = H + 16;
+  const snow = emitters[2]; snow.x = W / 2; snow.w = W;
+}
+// snow emitter special-cased in emitFrom wrapper
+const _emitFrom = emitFrom;
+emitFrom = function (e) {
+  if (e.snow) {
+    spawnP(3, rand(0, W), -8, rand(-14, 14), rand(24, 60), rand(4, 9), rand(1, 2.6), 1, { sway: 26 });
+    return;
+  }
+  _emitFrom(e);
+};
+
+// ---------- dynamic fire lighting ----------
+const lights = []; // {x,y,r,seed,amp}
+function renderLighting(darkAlpha) {
+  lctx.globalCompositeOperation = 'source-over';
+  lctx.clearRect(0, 0, W, H);
+  lctx.fillStyle = `rgba(2,4,13,${darkAlpha})`;
+  lctx.fillRect(0, 0, W, H);
+  lctx.globalCompositeOperation = 'destination-out';
+  for (const L of lights) {
+    const fl = 1 + Math.sin(perfT * 11 + L.seed) * 0.07 + Math.sin(perfT * 31 + L.seed * 2.7) * 0.045;
+    const r = L.r * fl * (L.amp || 1);
+    if (r < 2) continue;
+    const g = lctx.createRadialGradient(L.x, L.y, 0, L.x, L.y, r);
+    g.addColorStop(0, 'rgba(255,255,255,0.99)');
+    g.addColorStop(0.5, 'rgba(255,255,255,0.55)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    lctx.fillStyle = g;
+    lctx.beginPath(); lctx.arc(L.x, L.y, r, 0, TAU); lctx.fill();
+  }
+  ctx.drawImage(lightCanvas, 0, 0, W, H);
+}
+
+// ---------- ground (pre-rendered frozen waste) ----------
+function buildGround() {
+  gctx.globalCompositeOperation = 'source-over';
+  gctx.clearRect(0, 0, W, H);
+  gctx.fillStyle = '#05070f'; gctx.fillRect(0, 0, W, H);
+  // soft mottling
+  for (let i = 0; i < 420; i++) {
+    const x = rand(0, W), y = rand(0, H), r = rand(8, 60);
+    const g = gctx.createRadialGradient(x, y, 0, x, y, r);
+    const tint = Math.random() < 0.5 ? '10,16,34' : '16,22,44';
+    g.addColorStop(0, `rgba(${tint},0.20)`); g.addColorStop(1, `rgba(${tint},0)`);
+    gctx.fillStyle = g; gctx.beginPath(); gctx.arc(x, y, r, 0, TAU); gctx.fill();
+  }
+  // ice cracks
+  gctx.strokeStyle = 'rgba(140,185,235,0.13)'; gctx.lineWidth = 1;
+  for (let i = 0; i < 26; i++) {
+    let x = rand(0, W), y = rand(0, H);
+    gctx.beginPath(); gctx.moveTo(x, y);
+    const segs = randi(4, 9);
+    let ang = rand(0, TAU);
+    for (let s = 0; s < segs; s++) {
+      ang += rand(-0.7, 0.7);
+      x += Math.cos(ang) * rand(18, 55); y += Math.sin(ang) * rand(18, 55);
+      gctx.lineTo(x, y);
+    }
+    gctx.stroke();
+  }
+  // faint frozen shimmer dots
+  gctx.fillStyle = 'rgba(170,200,240,0.10)';
+  for (let i = 0; i < 160; i++) {
+    gctx.beginPath(); gctx.arc(rand(0, W), rand(0, H), rand(0.5, 1.6), 0, TAU); gctx.fill();
+  }
+}
+
+// frost creeping in from the edges when the flame is low
+function drawFrostCreep(strength) {
+  if (strength <= 0.01) return;
+  const g = ctx.createRadialGradient(W/2, H/2, Math.min(W,H)*0.28, W/2, H/2, Math.max(W,H)*0.72);
+  g.addColorStop(0, 'rgba(110,160,230,0)');
+  g.addColorStop(1, `rgba(110,165,235,${0.42 * strength})`);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // drifting frost motes near edges
+  if (Math.random() < strength * 0.6) {
+    const edge = randi(0, 3);
+    const x = edge === 0 ? rand(0, W*0.2) : edge === 1 ? rand(W*0.8, W) : rand(0, W);
+    const y = edge === 2 ? rand(0, H*0.2) : edge === 3 ? rand(H*0.8, H) : rand(0, H);
+    spawnP(4, x, y, rand(-14, 14), rand(-10, 10), rand(1, 2.4), rand(8, 20), 4, { alpha: 0.5 * strength });
+  }
+}
+
+// ============================================================
+//  GAME STATE + ENTITIES + WAVES + COMBAT
+// ============================================================
+const G = {
+  state: 'title',
+  flame: 100, maxFlame: 100,
+  hp: 3, maxHp: 3,
+  embers: 0, maxEmbers: 5,
+  score: 0, hiscore: 0,
+  wave: 0, waveState: 'idle', waveTimer: 0,
+  spawnQueue: [], spawnTimer: 0,
+  inferno: 0, shake: 0, time: 0,
+  newBest: false,
+};
+try { G.hiscore = parseInt(localStorage.getItem('pyrekeeper_hiscore') || '0', 10) || 0; } catch (e) {}
+
+const hearth = { x: 0, y: 0, r: 46 };
+function placeHearth() { hearth.x = W / 2; hearth.y = H / 2; layoutOverlays(); }
+const hearthFire = addEmitter({ x: 0, y: 0, w: 70, rate: 260, size: 64, speed: 170, dirY: -1, spread: 24 });
+
+const player = {
+  x: 0, y: 0, vx: 0, vy: 0, r: 15,
+  face: -Math.PI / 2, speed: 310,
+  fireCd: 0, invuln: 0, walkT: 0, lanternT: 0,
+};
+
+const shades = [];       // {x,y,vx,vy,r,hp,maxHp,speed,flash,seed,boss,hitCd,slamCd}
+const projectiles = [];  // {x,y,vx,vy,r,life,dmg,seed}
+const pickups = [];      // {x,y,vx,vy,r,life,seed}
+const floaters = [];     // {x,y,txt,life,maxLife,color}
+
+function addScore(n, x, y, color) {
+  G.score += n;
+  if (x !== undefined) floaters.push({ x, y: y || 0, txt: '+' + n, life: 1.1, maxLife: 1.1, color: color || '#ffd9a0' });
+}
+
+function burstFlames(x, y, n, size, overlay) {
+  EMIT_OVERLAY = !!overlay;
+  for (let i = 0; i < n; i++) {
+    const a = rand(0, TAU), sp = rand(20, 160);
+    spawnP(0, x + rand(-8, 8), y + rand(-8, 8),
+      Math.cos(a) * sp, Math.sin(a) * sp - 60,
+      rand(0.4, 0.9), (size || 40) * rand(0.6, 1.3), 6,
+      { turb: 50, buoy: 30, drag: 2.2 });
+  }
+  EMIT_OVERLAY = false;
+}
+function burstSparks(x, y, n, color) {
+  for (let i = 0; i < n; i++) {
+    const a = rand(0, TAU), sp = rand(60, 260);
+    spawnP(1, x, y, Math.cos(a) * sp, Math.sin(a) * sp,
+      rand(0.4, 1.0), rand(3, 7), 1, { grav: 120, drag: 1.4 });
+  }
+}
+function burstFrost(x, y, n, size) {
+  for (let i = 0; i < n; i++) {
+    const a = rand(0, TAU), sp = rand(30, 200);
+    spawnP(4, x, y, Math.cos(a) * sp, Math.sin(a) * sp,
+      rand(0.6, 1.4), (size || 26) * rand(0.5, 1.2), 4, { drag: 2.4, alpha: 0.8 });
+  }
+}
+
+// ---------- waves ----------
+function startWave(n) {
+  G.wave = n;
+  G.waveState = 'spawning';
+  G.spawnQueue = [];
+  const isBoss = n % 5 === 0;
+  let count = Math.min(4 + n * 2, 34);
+  if (isBoss) count = Math.min(2 + n, 14);
+  for (let i = 0; i < count; i++) G.spawnQueue.push({ boss: false });
+  if (isBoss) G.spawnQueue.push({ boss: true });
+  // shuffle so boss isn't always last
+  for (let i = G.spawnQueue.length - 1; i > 0; i--) {
+    const j = randi(0, i); const t = G.spawnQueue[i]; G.spawnQueue[i] = G.spawnQueue[j]; G.spawnQueue[j] = t;
+  }
+  G.spawnTimer = 0.5;
+  showBanner('WAVE ' + n, isBoss ? 'THE FROST REVENANT COMES' : pickWaveSub(n));
+  Audio2.horn();
+  // scatter a little fuel each wave
+  const fuel = Math.min(2 + Math.floor(n / 2), 6);
+  for (let i = 0; i < fuel; i++) spawnPickup(rand(W * 0.15, W * 0.85), rand(H * 0.15, H * 0.85));
+  updateWaveHUD();
+}
+function pickWaveSub(n) {
+  const subs = ['THE FROST HUNGERS', 'HOLD THE LIGHT', 'THEY COME FROM THE DARK',
+    'FEED THE FLAME', 'DARKNESS GATHERS', 'BURN THEM BACK'];
+  return subs[(n - 1) % subs.length];
+}
+
+function spawnShade(entry) {
+  // spawn just off a random edge
+  const edge = randi(0, 3), m = 40;
+  let x, y;
+  if (edge === 0) { x = rand(0, W); y = -m; }
+  else if (edge === 1) { x = W + m; y = rand(0, H); }
+  else if (edge === 2) { x = rand(0, W); y = H + m; }
+  else { x = -m; y = rand(0, H); }
+  const w = G.wave;
+  if (entry.boss) {
+    shades.push({
+      x, y, vx: 0, vy: 0, r: 36, boss: true,
+      hp: 320 + w * 45, maxHp: 320 + w * 45,
+      speed: rand(52, 62), flash: 0, seed: rand(0, TAU),
+      hitCd: 0, slamCd: 3,
+    });
+  } else {
+    shades.push({
+      x, y, vx: 0, vy: 0, r: rand(13, 17), boss: false,
+      hp: 22 + w * 7, maxHp: 22 + w * 7,
+      speed: rand(55, 85) + w * 2.2, flash: 0, seed: rand(0, TAU),
+      hitCd: 0, slamCd: 0,
+    });
+  }
+}
+
+function spawnPickup(x, y) {
+  pickups.push({
+    x: clamp(x, 30, W - 30), y: clamp(y, 60, H - 60),
+    vx: rand(-40, 40), vy: rand(-40, 40), r: 10,
+    life: 26, seed: rand(0, TAU),
+  });
+}
+
+// ---------- player actions ----------
+function tryFire() {
+  if (G.state !== 'play' || player.fireCd > 0) return;
+  Audio2.init(); Audio2.resume();
+  player.fireCd = 0.34;
+  // aim at nearest shade in range, else facing
+  let tx = player.x + Math.cos(player.face) * 100, ty = player.y + Math.sin(player.face) * 100;
+  let best = 420 * 420;
+  for (const s of shades) {
+    const d2 = dist2(player.x, player.y, s.x, s.y);
+    if (d2 < best) { best = d2; tx = s.x; ty = s.y; }
+  }
+  const a = Math.atan2(ty - player.y, tx - player.x);
+  player.face = a;
+  for (let k = -1; k <= 1; k++) {
+    const aa = a + k * 0.14;
+    projectiles.push({
+      x: player.x + Math.cos(aa) * 20, y: player.y + Math.sin(aa) * 20,
+      vx: Math.cos(aa) * 520, vy: Math.sin(aa) * 520,
+      r: 11, life: 0.85, dmg: 26, seed: rand(0, TAU),
+    });
+  }
+  burstFlames(player.x + Math.cos(a) * 26, player.y + Math.sin(a) * 26, 8, 30);
+  Audio2.whoosh();
+  G.shake = Math.max(G.shake, 2);
+}
+
+function depositEmbers() {
+  if (G.embers <= 0) return;
+  const gain = G.embers * 10;
+  G.embers = 0;
+  Audio2.deposit();
+  burstFlames(hearth.x, hearth.y - 10, 40, 70);
+  burstSparks(hearth.x, hearth.y - 20, 24);
+  if (G.flame + gain > G.maxFlame) triggerInferno();
+  else {
+    G.flame = Math.min(G.maxFlame, G.flame + gain);
+    floaters.push({ x: hearth.x, y: hearth.y - 70, txt: '+' + gain + ' FLAME', life: 1.4, maxLife: 1.4, color: '#ffb066' });
+  }
+  updateFlameHUD();
+}
+
+function triggerInferno() {
+  G.inferno = 4.2;
+  G.flame = 62;
+  G.shake = 16;
+  showBanner('INFERNO', 'THE FLAME CONSUMES ALL');
+  Audio2.inferno();
+  EMIT_OVERLAY = true;
+  for (let i = 0; i < 130; i++) {
+    spawnP(0, rand(0, W), rand(H * 0.15, H * 0.95),
+      rand(-60, 60), rand(-260, -80),
+      rand(0.8, 1.8), rand(60, 150), 12,
+      { turb: 90, buoy: 40, drag: 0.8 });
+  }
+  EMIT_OVERLAY = false;
+  burstFlames(hearth.x, hearth.y, 90, 110);
+  for (const s of shades) damageShade(s, 130, true);
+  updateFlameHUD();
+}
+
+function damageShade(s, dmg, silent) {
+  s.hp -= dmg; s.flash = 0.12;
+  if (s.hp <= 0 && !s.dead) {
+    s.dead = true;
+    const big = s.boss;
+    burstFlames(s.x, s.y, big ? 60 : 22, big ? 90 : 46);
+    burstSparks(s.x, s.y, big ? 30 : 10);
+    Audio2.shadeDie();
+    if (big) { Audio2.bossDie(); G.shake = Math.max(G.shake, 12); }
+    addScore(big ? 500 : 50, s.x, s.y - 20, big ? '#ffe95e' : '#ffd9a0');
+    const drops = big ? 5 : (Math.random() < 0.75 ? 1 : 2);
+    for (let i = 0; i < drops; i++) {
+      const a = rand(0, TAU);
+      const pk = { x: s.x, y: s.y, vx: Math.cos(a) * rand(40, 140), vy: Math.sin(a) * rand(40, 140), r: 10, life: 26, seed: rand(0, TAU) };
+      pickups.push(pk);
+    }
+    if (big) showBanner('REVENANT SLAIN', 'THE DARK RECOILS');
+  }
+}
+
+function hurtPlayer() {
+  if (player.invuln > 0) return;
+  G.hp -= 1; player.invuln = 1.4;
+  Audio2.hurt();
+  G.shake = Math.max(G.shake, 8);
+  burstFrost(player.x, player.y, 16, 22);
+  const dx = player.x - hearth.x, dy = player.y - hearth.y;
+  const m = Math.hypot(dx, dy) || 1;
+  player.vx += dx / m * 420; player.vy += dy / m * 420;
+  updateHearts();
+  if (G.hp <= 0) {
+    // the keeper has fallen — the run is over
+    updateHearts();
+    burstFlames(player.x, player.y - 10, 60, 90);
+    gameOver('keeper');
+  }
+}
+
+function gameOver(reason) {
+  G.state = 'over';
+  const keeper = reason === 'keeper';
+  document.getElementById('overtitle').textContent = keeper ? 'THE KEEPER HAS FALLEN' : 'THE DARK PREVAILS';
+  document.getElementById('oversub').textContent = keeper ? 'STRUCK DOWN — THE FLAME DIES UNGUARDED' : 'THE FLAME HAS DIED';
+  Audio2.noiseBurst(1.8, 'lowpass', 700, 0.3, 90);
+  // the last flame gutters out in a wash of frost
+  burstFrost(hearth.x, hearth.y, 60, 60);
+  let nb = false;
+  if (G.score > G.hiscore) {
+    G.hiscore = G.score; nb = true;
+    try { localStorage.setItem('pyrekeeper_hiscore', String(G.hiscore)); } catch (e) {}
+  }
+  G.newBest = nb;
+  setTimeout(() => {
+    document.getElementById('hud').classList.add('hidden');
+    document.getElementById('finalscore').textContent = 'SCORE ' + G.score + '  ·  WAVE ' + G.wave;
+    document.getElementById('newbest').classList.toggle('hidden', !nb);
+    document.getElementById('gameover').classList.remove('hidden');
+  }, 1400);
+}
+
+// ============================================================
+//  UPDATE + RENDER + UI WIRING + MAIN LOOP
+// ============================================================
+
+// ---------- HUD ----------
+const flamefill = document.getElementById('flamefill');
+const heartsEl = document.getElementById('hearts');
+const emberEl = document.getElementById('embercount');
+const waveEl = document.getElementById('wavenum');
+const scoreEl = document.getElementById('score');
+const hiscoreEl = document.getElementById('hiscore');
+const bannerEl = document.getElementById('wavebanner');
+let bannerTO = null;
+
+function updateFlameHUD() { flamefill.style.width = clamp(G.flame, 0, 100) + '%'; }
+function updateHearts() { heartsEl.textContent = '♥'.repeat(Math.max(0, G.hp)) + '♡'.repeat(Math.max(0, G.maxHp - G.hp)); }
+function updateEmberHUD() { emberEl.textContent = '◆ EMBERS: ' + G.embers; }
+function updateWaveHUD() {
+  waveEl.textContent = 'WAVE ' + Math.max(1, G.wave);
+  scoreEl.textContent = G.score;
+  hiscoreEl.textContent = 'BEST ' + G.hiscore;
+}
+function showBanner(title, sub) {
+  bannerEl.innerHTML = title + (sub ? '<span id="wavesub">' + sub + '</span>' : '');
+  bannerEl.style.opacity = 1;
+  clearTimeout(bannerTO);
+  bannerTO = setTimeout(() => { bannerEl.style.opacity = 0; }, 2600);
+}
+
+// ---------- per-frame update (playing) ----------
+function updatePlay(dt) {
+  perfT += dt; G.time += dt;
+
+  // flame drain — the core pressure
+  G.flame -= (1.05 + G.wave * 0.05) * dt;
+  if (G.flame <= 0) { G.flame = 0; updateFlameHUD(); gameOver("flame"); return; }
+
+  // inferno burn-down
+  if (G.inferno > 0) {
+    G.inferno -= dt;
+    for (const s of shades) damageShade(s, 90 * dt, true);
+    EMIT_OVERLAY = true;
+    for (let i = 0; i < 5; i++) {
+      spawnP(0, rand(0, W), rand(H * 0.1, H),
+        rand(-50, 50), rand(-300, -100),
+        rand(0.7, 1.5), rand(50, 130), 10,
+        { turb: 80, buoy: 36, drag: 0.7 });
+    }
+    EMIT_OVERLAY = false;
+    G.shake = Math.max(G.shake, 5);
+  }
+
+  // ---- player movement ----
+  let ix = 0, iy = 0;
+  if (keys['a'] || keys['arrowleft']) ix -= 1;
+  if (keys['d'] || keys['arrowright']) ix += 1;
+  if (keys['w'] || keys['arrowup']) iy -= 1;
+  if (keys['s'] || keys['arrowdown']) iy += 1;
+  if (joy.active) { ix += joy.dx; iy += joy.dy; }
+  const im = Math.hypot(ix, iy);
+  if (im > 0.01) {
+    ix /= Math.max(1, im); iy /= Math.max(1, im);
+    player.face = Math.atan2(iy, ix);
+    player.walkT += dt * 10;
+  }
+  const ACC = 2400;
+  player.vx += ix * ACC * dt; player.vy += iy * ACC * dt;
+  const fr = 1 - Math.min(1, 6.5 * dt);
+  player.vx *= fr; player.vy *= fr;
+  const sp = Math.hypot(player.vx, player.vy), MAXS = player.speed;
+  if (sp > MAXS) { player.vx = player.vx / sp * MAXS; player.vy = player.vy / sp * MAXS; }
+  player.x = clamp(player.x + player.vx * dt, 24, W - 24);
+  player.y = clamp(player.y + player.vy * dt, 70, H - 24);
+  // hearth stones block movement
+  {
+    const dx = player.x - hearth.x, dy = player.y - hearth.y;
+    const d = Math.hypot(dx, dy), minD = hearth.r + player.r - 4;
+    if (d < minD && d > 0.01) { player.x = hearth.x + dx / d * minD; player.y = hearth.y + dy / d * minD; }
+  }
+  player.fireCd = Math.max(0, player.fireCd - dt);
+  player.invuln = Math.max(0, player.invuln - dt);
+
+  // lantern drips little flames
+  player.lanternT -= dt;
+  if (player.lanternT <= 0) {
+    player.lanternT = 0.07;
+    const lx = player.x + Math.cos(player.face) * 22, ly = player.y + Math.sin(player.face) * 22 - 6;
+    spawnP(0, lx + rand(-3, 3), ly, rand(-8, 8), rand(-50, -20), rand(0.3, 0.55), rand(10, 18), 3, { turb: 30, buoy: 20 });
+  }
+
+  // ---- hearth fire follows flame level (tongues are the body; particles are texture)
+  const fi = G.flame / 100;
+  hearthFire.x = hearth.x; hearthFire.y = hearth.y - 6;
+  hearthFire.intensity = 0.15 + fi * 0.9;
+  hearthFire.size = 30 + fi * 36;
+  hearthFire.rate = 60 + fi * 120;
+  hearthFire.w = 50 + fi * 64;
+
+  // ---- screen-edge inferno overlays ----
+  const inf = G.inferno > 0 ? 2.4 : 1;
+  const ovI = (0.20 + 0.85 * fi) * inf;
+  overlayTop.intensity = ovI; overlayBot.intensity = ovI;
+  overlayTop.size = (64 + fi * 80) * (G.inferno > 0 ? 1.7 : 1);
+  overlayBot.size = (84 + fi * 100) * (G.inferno > 0 ? 1.7 : 1);
+
+  // ---- spawning ----
+  if (G.waveState === 'spawning' && G.spawnQueue.length) {
+    G.spawnTimer -= dt;
+    if (G.spawnTimer <= 0) {
+      G.spawnTimer = Math.max(0.25, 1.6 - G.wave * 0.09);
+      spawnShade(G.spawnQueue.pop());
+      if (!G.spawnQueue.length) G.waveState = 'active';
+    }
+  }
+
+  const hearthLightR = 120 + G.flame * 2.4;
+
+  // ---- shades ----
+  for (const s of shades) {
+    if (s.dead) continue;
+    s.flash = Math.max(0, s.flash - dt);
+    s.hitCd = Math.max(0, s.hitCd - dt);
+    // target: mostly the hearth, but the keeper's ember draws them
+    const dp = dist2(s.x, s.y, player.x, player.y);
+    let txp, typ;
+    if (dp < 150 * 150) { txp = player.x; typ = player.y; }
+    else {
+      txp = hearth.x + Math.cos(s.seed * 5) * 46;
+      typ = hearth.y + Math.sin(s.seed * 5) * 46;
+    }
+    const dx = txp - s.x, dy = typ - s.y, d = Math.hypot(dx, dy) || 1;
+    const wob = Math.sin(perfT * 3 + s.seed * 7) * 0.35;
+    const mx = dx / d + -dy / d * wob, my = dy / d + dx / d * wob;
+    s.vx = lerp(s.vx, mx * s.speed, Math.min(1, 3 * dt));
+    s.vy = lerp(s.vy, my * s.speed, Math.min(1, 3 * dt));
+    s.x += s.vx * dt; s.y += s.vy * dt;
+
+    // burn aura of the hearth light
+    if (dist2(s.x, s.y, hearth.x, hearth.y) < hearthLightR * hearthLightR && G.flame > 12) {
+      damageShade(s, (8 + fi * 34) * dt, true);
+      if (Math.random() < dt * 8) {
+        spawnP(0, s.x + rand(-s.r, s.r), s.y + rand(-s.r, s.r), rand(-20, 20), rand(-90, -30),
+          rand(0.3, 0.6), rand(14, 26), 4, { turb: 40 });
+      }
+    }
+    if (s.dead) continue;
+
+    // gnaw at the hearth
+    if (s.hitCd <= 0 && dist2(s.x, s.y, hearth.x, hearth.y) < (hearth.r + s.r + 8) * (hearth.r + s.r + 8)) {
+      s.hitCd = 1.1;
+      G.flame -= s.boss ? 16 : 7;
+      burstFrost(s.x, s.y, s.boss ? 26 : 10, 24);
+      const kx = s.x - hearth.x, ky = s.y - hearth.y, km = Math.hypot(kx, ky) || 1;
+      s.vx += kx / km * 260; s.vy += ky / km * 260;
+      G.shake = Math.max(G.shake, s.boss ? 9 : 4);
+      updateFlameHUD();
+      if (G.flame <= 0) { G.flame = 0; gameOver("flame"); return; }
+    }
+
+    // claw the keeper
+    if (player.invuln <= 0 && dist2(s.x, s.y, player.x, player.y) < (s.r + player.r) * (s.r + player.r)) {
+      hurtPlayer();
+    }
+
+    // boss slam
+    if (s.boss) {
+      s.slamCd -= dt;
+      if (s.slamCd <= 0) {
+        s.slamCd = 5;
+        Audio2.noiseBurst(0.7, 'lowpass', 300, 0.3, 80);
+        G.shake = Math.max(G.shake, 7);
+        for (let i = 0; i < 40; i++) {
+          const a = (i / 40) * TAU;
+          spawnP(4, s.x + Math.cos(a) * s.r, s.y + Math.sin(a) * s.r,
+            Math.cos(a) * 260, Math.sin(a) * 260,
+            rand(0.5, 1.0), rand(14, 26), 4, { drag: 2.6, alpha: 0.9 });
+        }
+        if (dist2(s.x, s.y, player.x, player.y) < 175 * 175) {
+          hurtPlayer();
+          const kx = player.x - s.x, ky = player.y - s.y, km = Math.hypot(kx, ky) || 1;
+          player.vx += kx / km * 520; player.vy += ky / km * 520;
+        }
+      }
+    }
+  }
+  for (let i = shades.length - 1; i >= 0; i--) if (shades[i].dead) shades.splice(i, 1);
+
+  // ---- projectiles ----
+  for (let i = projectiles.length - 1; i >= 0; i--) {
+    const pr = projectiles[i];
+    pr.life -= dt;
+    pr.x += pr.vx * dt; pr.y += pr.vy * dt;
+    spawnP(0, pr.x, pr.y, rand(-24, 24), rand(-70, -30), rand(0.25, 0.5), rand(22, 34), 5, { turb: 50 });
+    if (Math.random() < 0.5) spawnP(1, pr.x, pr.y, rand(-60, 60), rand(-60, 60), 0.4, 5, 1, {});
+    let hit = pr.life <= 0 || pr.x < -30 || pr.x > W + 30 || pr.y < -30 || pr.y > H + 30;
+    if (!hit) {
+      for (const s of shades) {
+        if (s.dead) continue;
+        const rr = s.r + pr.r;
+        if (dist2(pr.x, pr.y, s.x, s.y) < rr * rr) {
+          damageShade(s, pr.dmg);
+          burstFlames(pr.x, pr.y, 10, 34);
+          const kx = s.x - pr.x, ky = s.y - pr.y, km = Math.hypot(kx, ky) || 1;
+          s.vx += pr.vx * 0.12; s.vy += pr.vy * 0.12;
+          hit = true; break;
+        }
+      }
+    }
+    if (hit) projectiles.splice(i, 1);
+  }
+
+  // ---- pickups (embers) ----
+  for (let i = pickups.length - 1; i >= 0; i--) {
+    const pk = pickups[i];
+    pk.life -= dt;
+    if (pk.life <= 0) { pickups.splice(i, 1); continue; }
+    pk.vx *= (1 - 2.4 * dt); pk.vy *= (1 - 2.4 * dt);
+    const dx = player.x - pk.x, dy = player.y - pk.y, d = Math.hypot(dx, dy) || 1;
+    if (d < 110) { pk.vx += dx / d * 700 * dt; pk.vy += dy / d * 700 * dt; }
+    pk.x += pk.vx * dt; pk.y += pk.vy * dt;
+    if (d < 26) {
+      pickups.splice(i, 1);
+      if (G.embers < G.maxEmbers) {
+        G.embers++;
+        Audio2.pickup();
+        burstSparks(pk.x, pk.y, 8);
+        floaters.push({ x: pk.x, y: pk.y - 18, txt: 'EMBER', life: 0.9, maxLife: 0.9, color: '#ffd23f' });
+        updateEmberHUD();
+      } else {
+        addScore(25, pk.x, pk.y - 14);
+        Audio2.pickup();
+      }
+    }
+    if (Math.random() < dt * 6) {
+      spawnP(1, pk.x + rand(-6, 6), pk.y + rand(-6, 6), rand(-14, 14), rand(-40, -10), 0.6, 5, 1, {});
+    }
+  }
+  // slow ambient fuel trickle
+  if (Math.random() < dt / 8 && pickups.length < 6) {
+    spawnPickup(rand(W * 0.12, W * 0.88), rand(H * 0.18, H * 0.85));
+  }
+
+  // ---- deposit at the hearth ----
+  if (G.embers > 0 && dist2(player.x, player.y, hearth.x, hearth.y) < 105 * 105) depositEmbers();
+
+  // ---- floaters ----
+  for (let i = floaters.length - 1; i >= 0; i--) {
+    const f = floaters[i];
+    f.life -= dt; f.y -= 34 * dt;
+    if (f.life <= 0) floaters.splice(i, 1);
+  }
+
+  // ---- wave flow ----
+  if (G.waveState === 'active' && shades.length === 0) {
+    G.waveState = 'intermission'; G.waveTimer = 4.2;
+    addScore(100 * G.wave);
+    showBanner('WAVE ' + G.wave + ' CLEARED', '+' + (100 * G.wave) + ' — THE FLAME ENDURES');
+    updateWaveHUD();
+  } else if (G.waveState === 'intermission') {
+    G.waveTimer -= dt;
+    if (G.waveTimer <= 0) startWave(G.wave + 1);
+  }
+
+  // ---- lights ----
+  lights.length = 0;
+  lights.push({ x: hearth.x, y: hearth.y - 24, r: 130 + G.flame * 2.6 + (G.inferno > 0 ? 150 : 0), seed: 1.7 });
+  lights.push({ x: player.x, y: player.y, r: 125, seed: 4.2 });
+  for (const pr of projectiles) lights.push({ x: pr.x, y: pr.y, r: 85, seed: pr.seed });
+  for (const pk of pickups) lights.push({ x: pk.x, y: pk.y, r: 48, seed: pk.seed });
+
+  updateParticles(dt);
+  updateEmitters(dt);
+  G.shake = Math.max(0, G.shake - 34 * dt);
+  scoreEl.textContent = G.score;
+  Audio2.update(dt);
+}
+
+// ---------- ambient updates for title / game-over backdrops ----------
+function updateTitle(dt) {
+  perfT += dt;
+  hearthFire.x = hearth.x; hearthFire.y = hearth.y - 6;
+  hearthFire.intensity = 0.7; hearthFire.size = 58; hearthFire.rate = 150; hearthFire.w = 100;
+  overlayTop.intensity = 0.65; overlayBot.intensity = 0.65;
+  overlayTop.size = 110; overlayBot.size = 140;
+  lights.length = 0;
+  lights.push({ x: hearth.x, y: hearth.y - 24, r: 380, seed: 1.7 });
+  updateParticles(dt); updateEmitters(dt);
+  Audio2.update(dt);
+}
+function updateOver(dt) {
+  perfT += dt;
+  hearthFire.intensity = Math.max(0.04, hearthFire.intensity - dt * 0.5);
+  overlayTop.intensity = Math.max(0.08, overlayTop.intensity - dt * 0.4);
+  overlayBot.intensity = Math.max(0.08, overlayBot.intensity - dt * 0.4);
+  lights.length = 0;
+  lights.push({ x: hearth.x, y: hearth.y - 24, r: 90, seed: 1.7 });
+  if (Math.random() < dt * 6) {
+    const edge = randi(0, 3);
+    spawnP(4, rand(0, W), edge < 2 ? rand(0, H * 0.3) : rand(H * 0.7, H),
+      rand(-16, 16), rand(-12, 12), rand(1.5, 3), rand(14, 30), 5, { alpha: 0.5 });
+  }
+  updateParticles(dt); updateEmitters(dt);
+  Audio2.update(dt);
+}
+
+// ============================================================
+//  RENDER
+// ============================================================
+function flameTongue(cx, baseY, tw, th, sway, style) {
+  const tipX = cx + sway, tipY = baseY - th;
+  const g = ctx.createLinearGradient(0, baseY, 0, tipY);
+  if (style === 0) {          // outer veil: deep red-orange
+    g.addColorStop(0, 'rgba(255,120,30,0.50)');
+    g.addColorStop(0.5, 'rgba(230,70,15,0.30)');
+    g.addColorStop(1, 'rgba(180,30,5,0)');
+  } else if (style === 1) {   // mid body: orange-yellow
+    g.addColorStop(0, 'rgba(255,190,80,0.70)');
+    g.addColorStop(0.5, 'rgba(255,130,25,0.42)');
+    g.addColorStop(1, 'rgba(255,80,10,0)');
+  } else {                    // core: pale gold
+    g.addColorStop(0, 'rgba(255,240,180,0.85)');
+    g.addColorStop(0.5, 'rgba(255,200,100,0.45)');
+    g.addColorStop(1, 'rgba(255,150,50,0)');
+  }
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(cx - tw, baseY);
+  ctx.quadraticCurveTo(cx - tw * 0.5 + sway * 0.4, baseY - th * 0.6, tipX, tipY);
+  ctx.quadraticCurveTo(cx + tw * 0.5 + sway * 0.4, baseY - th * 0.6, cx + tw, baseY);
+  ctx.closePath();
+  ctx.fill();
+}
+
+// The hearth's readable flame: layered bezier tongues over a coal glow.
+// Particle sprites alone stack into a white blob; tongues give the flicker.
+function drawHearthFire(x, y, fi, seed) {
+  ctx.globalCompositeOperation = 'lighter';
+  const pulse = 0.8 + 0.2 * Math.sin(perfT * 9 + seed);
+  const gs = 60 * (0.35 + fi * 0.8) * pulse;
+  if (gs > 4) drawFlameSprite(SPR.glowWarm, x, y - 4, gs, 0.7);
+  const W0 = (54 + fi * 66) * pulse;
+  const H0 = (80 + fi * 150) * (0.9 + 0.1 * Math.sin(perfT * 7 + seed * 3));
+  const layers = [
+    { n: 6, wm: 0.30, hm: 1.00, style: 0 },
+    { n: 6, wm: 0.22, hm: 0.85, style: 1 },
+    { n: 4, wm: 0.15, hm: 0.62, style: 2 },
+  ];
+  for (let li = 0; li < layers.length; li++) {
+    const L = layers[li];
+    for (let i = 0; i < L.n; i++) {
+      const t = L.n === 1 ? 0.5 : i / (L.n - 1);
+      const cx = x + (t - 0.5) * W0 * 0.9;
+      const sway = Math.sin(perfT * (5 + li) + seed + i * 1.93 + li * 2.1) * W0 * 0.10;
+      const th = H0 * L.hm * (0.72 + 0.28 * Math.sin(perfT * (8 + li * 1.3) + seed * 2 + i * 2.7));
+      flameTongue(cx, y + 8, W0 * L.wm * 0.5, Math.max(20, th), sway, L.style);
+    }
+  }
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+function drawHearth() {
+  // stone ring
+  for (let i = 0; i < 11; i++) {
+    const a = (i / 11) * TAU + 0.3;
+    const sx = hearth.x + Math.cos(a) * hearth.r, sy = hearth.y + Math.sin(a) * hearth.r * 0.92;
+    ctx.fillStyle = '#2a2d3a';
+    ctx.beginPath(); ctx.arc(sx, sy, 13, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#3d4152';
+    ctx.beginPath(); ctx.arc(sx - 3, sy - 4, 6, 0, TAU); ctx.fill();
+  }
+  // pit
+  ctx.fillStyle = '#0a0503';
+  ctx.beginPath(); ctx.ellipse(hearth.x, hearth.y, hearth.r - 12, (hearth.r - 12) * 0.9, 0, 0, TAU); ctx.fill();
+  // the flame itself: layered tongues (particles add embers/sparks above)
+  drawHearthFire(hearth.x, hearth.y, G.state === 'play' ? G.flame / 100 : 0.8, 1.3);
+}
+
+function drawShade(s) {
+  ctx.save();
+  ctx.translate(s.x, s.y);
+  const wob = Math.sin(perfT * 5 + s.seed * 9) * 0.08;
+  ctx.scale(1 + wob, 1 - wob);
+  // smoky body
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, s.r * 1.25);
+  g.addColorStop(0, 'rgba(10,13,28,0.96)');
+  g.addColorStop(0.7, 'rgba(14,18,38,0.88)');
+  g.addColorStop(1, 'rgba(20,26,52,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(0, 0, s.r * 1.25, 0, TAU); ctx.fill();
+  // tattered wisps
+  ctx.strokeStyle = 'rgba(30,40,70,0.7)'; ctx.lineWidth = 3;
+  for (let i = 0; i < 4; i++) {
+    const a = s.seed + i * 1.7 + perfT * 1.4;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a) * s.r * 0.5, Math.sin(a) * s.r * 0.5);
+    ctx.quadraticCurveTo(Math.cos(a + 0.5) * s.r * 1.2, Math.sin(a + 0.5) * s.r * 1.2,
+      Math.cos(a + 0.9) * s.r * 1.5, Math.sin(a + 0.9) * s.r * 1.5 + 8);
+    ctx.stroke();
+  }
+  // ice-blue eyes facing travel dir
+  const ma = Math.atan2(s.vy, s.vx);
+  const ex = Math.cos(ma), ey = Math.sin(ma);
+  const px = -ey, py = ex;
+  ctx.globalCompositeOperation = 'lighter';
+  for (const sgn of [-1, 1]) {
+    const exx = ex * s.r * 0.35 + px * sgn * s.r * 0.32;
+    const eyy = ey * s.r * 0.35 + py * sgn * s.r * 0.32;
+    drawFlameSprite(SPR.frost, exx, eyy, s.r * (s.boss ? 0.5 : 0.42), 0.95);
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  // boss crown + hp bar
+  if (s.boss) {
+    ctx.fillStyle = 'rgba(150,200,255,0.85)';
+    for (let i = -2; i <= 2; i++) {
+      const bx = i * s.r * 0.32;
+      ctx.beginPath();
+      ctx.moveTo(bx - 7, -s.r * 0.8); ctx.lineTo(bx, -s.r * 1.45); ctx.lineTo(bx + 7, -s.r * 0.8);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.restore(); ctx.save(); ctx.translate(s.x, s.y);
+    const bw = 90;
+    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(-bw / 2, -s.r - 34, bw, 8);
+    ctx.fillStyle = '#7fb8ff'; ctx.fillRect(-bw / 2, -s.r - 34, bw * clamp(s.hp / s.maxHp, 0, 1), 8);
+  }
+  // damage flash
+  if (s.flash > 0) {
+    ctx.globalAlpha = clamp(s.flash * 6, 0, 0.85);
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(0, 0, s.r, 0, TAU); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  ctx.restore();
+}
+
+function drawPlayer() {
+  const p = player;
+  const bob = Math.abs(Math.sin(p.walkT)) * 3;
+  const blink = p.invuln > 0 && Math.floor(perfT * 14) % 2 === 0;
+  ctx.save();
+  ctx.translate(p.x, p.y - bob);
+  if (blink) ctx.globalAlpha = 0.35;
+  // cloak
+  ctx.fillStyle = '#4a1006';
+  ctx.beginPath();
+  ctx.moveTo(0, -20); ctx.lineTo(14, 14); ctx.lineTo(-14, 14); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#6e1c0a';
+  ctx.beginPath();
+  ctx.moveTo(0, -20); ctx.lineTo(7, 12); ctx.lineTo(-7, 12); ctx.closePath(); ctx.fill();
+  // fire-side rim light
+  ctx.strokeStyle = 'rgba(255,150,50,0.8)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, -20); ctx.lineTo(14, 14); ctx.stroke();
+  // hood + face
+  ctx.fillStyle = '#3a0d04';
+  ctx.beginPath(); ctx.arc(0, -22, 10, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#d8a077';
+  ctx.beginPath(); ctx.arc(0, -20, 6, 0, TAU); ctx.fill();
+  // lantern arm toward facing
+  const lx = Math.cos(p.face) * 22, ly = Math.sin(p.face) * 22 - 6 + bob;
+  ctx.strokeStyle = '#2a1a0e'; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(6, -6); ctx.lineTo(lx, ly); ctx.stroke();
+  ctx.restore();
+  // lantern glow (additive, unclipped by blink)
+  ctx.globalCompositeOperation = 'lighter';
+  const glx = p.x + Math.cos(p.face) * 22, gly = p.y + Math.sin(p.face) * 22 - 6;
+  const fl = 0.85 + 0.15 * Math.sin(perfT * 17);
+  drawFlameSprite(SPR.glowWarm, glx, gly, 66 * fl, 0.9);
+  drawFlameSprite(SPR.flameHot, glx, gly - 4, 20 * fl, 0.95);
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+function drawPickup(pk) {
+  const bob = Math.sin(perfT * 4 + pk.seed) * 4;
+  const pulse = 0.8 + 0.2 * Math.sin(perfT * 6 + pk.seed * 3);
+  ctx.globalCompositeOperation = 'lighter';
+  drawFlameSprite(SPR.glowWarm, pk.x, pk.y + bob, 52 * pulse, 0.75);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.save();
+  ctx.translate(pk.x, pk.y + bob);
+  ctx.rotate(Math.PI / 4 + Math.sin(perfT * 2 + pk.seed) * 0.2);
+  const s = 9 * pulse;
+  const g = ctx.createLinearGradient(-s, -s, s, s);
+  g.addColorStop(0, '#ffe9a8'); g.addColorStop(0.5, '#ff9a2a'); g.addColorStop(1, '#b6320c');
+  ctx.fillStyle = g;
+  ctx.fillRect(-s / 1.4, -s / 1.4, s * 1.4, s * 1.4);
+  ctx.restore();
+}
+
+function drawFrameFire() {
+  // extra screen-edge gradient punch so the top/bottom fire reads even at low particle counts
+  const fl = 0.7 + 0.3 * Math.sin(perfT * 13) + 0.12 * Math.sin(perfT * 41);
+  const fi = G.state === 'play' ? G.flame / 100 : 0.7;
+  const inf = G.inferno > 0 ? 1.8 : 1;
+  const aTop = clamp((0.10 + fi * 0.30) * fl * inf, 0, 0.75);
+  const aBot = clamp((0.16 + fi * 0.38) * fl * inf, 0, 0.85);
+  const hh = H * 0.16 * inf;
+  ctx.globalCompositeOperation = 'lighter';
+  let g = ctx.createLinearGradient(0, 0, 0, hh);
+  g.addColorStop(0, `rgba(255,120,20,${aTop})`);
+  g.addColorStop(1, 'rgba(255,60,10,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, hh);
+  g = ctx.createLinearGradient(0, H, 0, H - hh * 1.4);
+  g.addColorStop(0, `rgba(255,130,25,${aBot})`);
+  g.addColorStop(1, 'rgba(255,60,10,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, H - hh * 1.4, W, hh * 1.4);
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+function render() {
+  ctx.clearRect(0, 0, W, H);
+  ctx.drawImage(groundCanvas, 0, 0, W, H);
+
+  ctx.save();
+  if (G.shake > 0.2) ctx.translate(rand(-G.shake, G.shake), rand(-G.shake, G.shake));
+
+  if (G.state !== 'title') drawHearth();
+  else {
+    // title: stone ring + a proud flame behind the text
+    ctx.fillStyle = '#2a2d3a';
+    for (let i = 0; i < 11; i++) {
+      const a = (i / 11) * TAU + 0.3;
+      ctx.beginPath(); ctx.arc(hearth.x + Math.cos(a) * hearth.r, hearth.y + Math.sin(a) * hearth.r * 0.92, 13, 0, TAU); ctx.fill();
+    }
+    drawHearthFire(hearth.x, hearth.y, 0.85, 1.3);
+  }
+  for (const pk of pickups) drawPickup(pk);
+  for (const s of shades) drawShade(s);
+  if (G.state === 'play' || G.state === 'paused') drawPlayer();
+
+  // projectiles cores
+  ctx.globalCompositeOperation = 'lighter';
+  for (const pr of projectiles) drawFlameSprite(SPR.flameHot, pr.x, pr.y, 34, 0.95);
+  ctx.globalCompositeOperation = 'source-over';
+
+  drawParticles(false); // world-space fire
+  ctx.restore();
+
+  // darkness + fire light
+  let dark;
+  if (G.state === 'play') dark = clamp(0.92 - (G.flame / 100) * 0.58 - (G.inferno > 0 ? 0.14 : 0), 0.16, 0.94);
+  else if (G.state === 'title') dark = 0.60;
+  else if (G.state === 'paused') dark = 0.75;
+  else dark = 0.88;
+  renderLighting(dark);
+
+  drawParticles(true); // screen-edge inferno overlays burn ABOVE the dark
+  drawFrameFire();
+
+  // frost creeps in as the flame dies
+  if (G.state === 'play') drawFrostCreep(clamp((30 - G.flame) / 30, 0, 1));
+  if (G.state === 'over') drawFrostCreep(1);
+
+  // floaters
+  ctx.textAlign = 'center';
+  for (const f of floaters) {
+    ctx.globalAlpha = clamp(f.life / f.maxLife, 0, 1);
+    ctx.font = '15px Georgia';
+    ctx.fillStyle = f.color;
+    ctx.fillText(f.txt, f.x, f.y);
+  }
+  ctx.globalAlpha = 1;
+}
+
+// ---------- screens / flow ----------
+function startGame() {
+  Audio2.init(); Audio2.resume();
+  G.state = 'play';
+  G.flame = 100; G.hp = G.maxHp; G.embers = 0;
+  G.score = 0; G.wave = 0; G.waveState = 'idle';
+  G.spawnQueue = []; G.inferno = 0; G.shake = 0; G.time = 0; G.newBest = false;
+  shades.length = 0; projectiles.length = 0; pickups.length = 0; floaters.length = 0;
+  for (const p of parts) p.alive = false;
+  player.x = hearth.x; player.y = hearth.y + 130;
+  player.vx = player.vy = 0; player.invuln = 1.5; player.fireCd = 0;
+  document.getElementById('title').classList.add('hidden');
+  document.getElementById('gameover').classList.add('hidden');
+  document.getElementById('pausescreen').classList.add('hidden');
+  document.getElementById('hud').classList.remove('hidden');
+  updateFlameHUD(); updateHearts(); updateEmberHUD(); updateWaveHUD();
+  hiscoreEl.textContent = 'BEST ' + G.hiscore;
+  startWave(1);
+}
+
+function togglePause() {
+  if (G.state === 'play') {
+    G.state = 'paused';
+    document.getElementById('pausescreen').classList.remove('hidden');
+  } else if (G.state === 'paused') {
+    G.state = 'play';
+    document.getElementById('pausescreen').classList.add('hidden');
+  }
+}
+document.getElementById('pausebtn').addEventListener('click', () => { Audio2.init(); togglePause(); });
+document.getElementById('startbtn').addEventListener('click', startGame);
+document.getElementById('retrybtn').addEventListener('click', startGame);
+document.getElementById('resumebtn').addEventListener('click', togglePause);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && G.state === 'play') togglePause();
+});
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+if (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
+  document.getElementById('controlshint').innerHTML =
+    '<b>Left thumb</b> move &nbsp;&middot;&nbsp; <b>FIRE button</b> hurl flame<br>' +
+    'Gather embers from fallen shades &mdash; carry them to the hearth to stoke the flame.<br>' +
+    'Overstoke a roaring flame to unleash an INFERNO.';
+}
+
+// ---------- main loop ----------
+let last = performance.now();
+function frame(now) {
+  requestAnimationFrame(frame);
+  let dt = (now - last) / 1000;
+  last = now;
+  dt = Math.min(dt, 0.05);
+  if (G.state === 'play') updatePlay(dt);
+  else if (G.state === 'title') updateTitle(dt);
+  else if (G.state === 'over') updateOver(dt);
+  // paused: render frozen frame, no updates
+  render();
+}
+
+// ---------- init ----------
+resize();
+hiscoreEl.textContent = 'BEST ' + G.hiscore;
+requestAnimationFrame(frame);
+
+})();
+</script>
+</body>
+</html>
